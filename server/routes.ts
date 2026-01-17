@@ -100,15 +100,22 @@ export async function registerRoutes(
 
       const ffmpeg = spawn("ffmpeg", [
         "-i", videoPath,
-        "-vf", `drawtext=text='${overlayText}':x=(w-text_w)/2:y=h-th-20:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5`,
+        "-vf", `drawtext=text='${overlayText}':x=(w-text_w)/2:y=h-th-20:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5,format=yuv420p`,
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
         "-c:a", "copy",
-        "-t", "5", // Export only first 5 seconds for speed in demo
+        "-t", "5",
         "-y",
         outputPath
       ]);
 
+      ffmpeg.stderr.on("data", (data) => {
+        console.error(`FFmpeg stderr: ${data}`);
+      });
+
       ffmpeg.on("close", (code) => {
         if (code !== 0) {
+          console.error(`FFmpeg process exited with code ${code}`);
           return res.status(500).json({ message: "Export failed" });
         }
         res.json({ url: `/exports/${outputFilename}` });
