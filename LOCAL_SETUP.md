@@ -26,9 +26,17 @@ Create a `.env` file in the project root:
 
 ```env
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/tesla_viewer
-SESSION_SECRET=a_long_random_string_for_sessions
+SESSION_SECRET=your_generated_secret_here
 NODE_ENV=development
 ```
+
+To generate a secure `SESSION_SECRET` on your Mac, you can run this command in your terminal:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Copy the output and paste it into your `.env` file.
 
 ## 3. Installation
 
