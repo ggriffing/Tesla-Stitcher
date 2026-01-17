@@ -30,6 +30,12 @@ SESSION_SECRET=your_generated_secret_here
 NODE_ENV=development
 ```
 
+To test postgres access:
+
+```shell
+psql postgres
+```
+
 To generate a secure `SESSION_SECRET` on your Mac, you can run this command in your terminal:
 
 ```bash
