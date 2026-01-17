@@ -59,6 +59,20 @@ export const api = {
       },
     },
   },
+  metadata: {
+    extract: {
+      method: 'POST' as const,
+      path: '/api/metadata/extract',
+      input: z.object({
+        filename: z.string(),
+      }),
+      responses: {
+        200: z.array(z.any()),
+        400: errorSchemas.validation,
+        500: errorSchemas.internal,
+      },
+    },
+  }
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {

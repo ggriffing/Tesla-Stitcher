@@ -24,3 +24,15 @@ export type InsertProject = z.infer<typeof insertProjectSchema>;
 // API Types
 export type CreateProjectRequest = InsertProject;
 export type UpdateProjectRequest = Partial<InsertProject>;
+
+export interface SeiMetadata {
+  timestamp: string;
+  speed?: string;
+  gear?: string;
+  latitude?: string;
+  longitude?: string;
+  brake?: string;
+  accelerator?: string;
+  turn_signal?: string;
+  [key: string]: any;
+}

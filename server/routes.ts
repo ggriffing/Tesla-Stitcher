@@ -3,6 +3,9 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { spawn } from "child_process";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -50,9 +53,6 @@ export async function registerRoutes(
           field: err.errors[0].path.join('.'),
         });
       }
-      // If project not found (storage throws or returns null/undefined depending on impl, 
-      // but here updateProject throws if we don't catch it, or just returns. 
-      // Safe to assume 404 if not successful in many ORMs, but here let's stick to simple success)
       res.status(500).json({ message: 'Internal server error' });
     }
   });
@@ -62,10 +62,65 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Metadata Extraction API
+  app.post(api.metadata.extract.path, async (req, res) => {
+    try {
+      const { filename } = api.metadata.extract.input.parse(req.body);
+      // In a real app, filename would be a path to an uploaded file.
+      // For this demo, we assume the file exists in a known location or we mock the response.
+      // Note: SEI extraction requires the actual .mp4 file on the server.
+      
+      const scriptPath = path.resolve("server/scripts/sei_extractor.py");
+      const videoPath = path.resolve("attached_assets", filename);
+
+      if (!fs.existsSync(videoPath)) {
+        return res.status(400).json({ message: `Video file ${filename} not found on server.` });
+      }
+
+      const pythonProcess = spawn("python3", [scriptPath, videoPath]);
+      let data = "";
+      let error = "";
+
+      pythonProcess.stdout.on("data", (chunk) => {
+        data += chunk.toString();
+      });
+
+      pythonProcess.stderr.on("data", (chunk) => {
+        error += chunk.toString();
+      });
+
+      pythonProcess.on("close", (code) => {
+        if (code !== 0) {
+          return res.status(500).json({ message: "Extraction failed", error });
+        }
+        
+        // Parse CSV output
+        const lines = data.trim().split("\n");
+        if (lines.length < 2) {
+          return res.json([]);
+        }
+
+        const headers = lines[0].split(",");
+        const results = lines.slice(1).map(line => {
+          const values = line.split(",");
+          const obj: any = {};
+          headers.forEach((h, i) => obj[h] = values[i]);
+          return obj;
+        });
+
+        res.json(results);
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }
 
-// Seed function to create an example project configuration
 async function seedDatabase() {
   const existing = await storage.getProjects();
   if (existing.length === 0) {
@@ -83,5 +138,4 @@ async function seedDatabase() {
   }
 }
 
-// Execute seed
 seedDatabase().catch(console.error);
