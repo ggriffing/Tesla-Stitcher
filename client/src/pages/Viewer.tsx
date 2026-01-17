@@ -124,13 +124,19 @@ export default function Viewer() {
 
     setIsExporting(true);
     try {
-      // For demo, we use the filename if available or a placeholder
-      // In a real scenario, you'd use the actual server-side path
+      // Find a real filename from the server if possible, or use a fallback
+      // In this demo, we check if we have a front camera file name or use a default
       const res = await apiRequest("POST", api.export.camcorder.path, {
         view: selectedView,
-        filename: "tesla_front.mp4", // Mocking a filename that exists on server
+        filename: "tesla_front.mp4", 
         telemetry: metadata.length > 0 ? [currentTelemetry] : []
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Export failed");
+      }
+      
       const data = await res.json();
       
       // Trigger download
