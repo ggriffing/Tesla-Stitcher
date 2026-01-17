@@ -72,6 +72,22 @@ export const api = {
         500: errorSchemas.internal,
       },
     },
+  },
+  export: {
+    camcorder: {
+      method: 'POST' as const,
+      path: '/api/export/camcorder',
+      input: z.object({
+        view: z.enum(["front", "back", "left", "right"]),
+        filename: z.string(),
+        telemetry: z.array(z.any()),
+      }),
+      responses: {
+        200: z.object({ url: z.string() }),
+        400: errorSchemas.validation,
+        500: errorSchemas.internal,
+      },
+    },
   }
 };
 

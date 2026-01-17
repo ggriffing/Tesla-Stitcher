@@ -50,6 +50,7 @@ export default function Viewer() {
   // Telemetry State
   const [metadata, setMetadata] = useState<any[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Initialize config when project loads
   useEffect(() => {
@@ -112,6 +113,39 @@ export default function Viewer() {
       generateMockMetadata();
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedView || !videoUrls[selectedView]) {
+      toast({ title: "Select a camera view with a loaded video first." });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      // For demo, we use the filename if available or a placeholder
+      // In a real scenario, you'd use the actual server-side path
+      const res = await apiRequest("POST", api.export.camcorder.path, {
+        view: selectedView,
+        filename: "tesla_front.mp4", // Mocking a filename that exists on server
+        telemetry: metadata.length > 0 ? [currentTelemetry] : []
+      });
+      const data = await res.json();
+      
+      // Trigger download
+      const link = document.createElement("a");
+      link.href = data.url;
+      link.download = `Tesla_Export_${selectedView}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({ title: "Export Complete", description: "Camcorder view has been downloaded." });
+    } catch (err) {
+      toast({ title: "Export Failed", description: "Could not generate camcorder view.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -269,6 +303,18 @@ export default function Viewer() {
                   )}
                 </div>
               ))}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <CyberButton 
+                variant="primary" 
+                className="w-full text-[10px]" 
+                disabled={!selectedView || isExporting}
+                onClick={handleExport}
+                isLoading={isExporting}
+              >
+                <Monitor className="w-3 h-3 mr-2" /> EXPORT CAMCORDER VIEW
+              </CyberButton>
             </div>
           </div>
 

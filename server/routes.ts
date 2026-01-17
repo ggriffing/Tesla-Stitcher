@@ -62,6 +62,53 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Export Camcorder View API
+  app.post(api.export.camcorder.path, async (req, res) => {
+    try {
+      const { view, filename, telemetry } = api.export.camcorder.input.parse(req.body);
+      const videoPath = path.resolve("attached_assets", filename);
+      
+      if (!fs.existsSync(videoPath)) {
+        return res.status(400).json({ message: `Video file ${filename} not found on server.` });
+      }
+
+      // Create a temporary directory for export if it doesn't exist
+      const exportDir = path.resolve("client/public/exports");
+      if (!fs.existsSync(exportDir)) {
+        fs.mkdirSync(exportDir, { recursive: true });
+      }
+
+      const outputFilename = `camcorder_${view}_${Date.now()}.mp4`;
+      const outputPath = path.join(exportDir, outputFilename);
+
+      // Create telemetry overlay filter
+      // We take the telemetry data and create a drawtext filter for FFmpeg
+      // For simplicity in this demo, we'll overlay just the speed and gear at the bottom
+      // In a real app, you'd generate a more complex filter or even a temporary subtitle file
+      const speed = telemetry[0]?.speed || "0";
+      const gear = telemetry[0]?.gear || "P";
+      const overlayText = `SPEED: ${speed} MPH | GEAR: ${gear}`;
+
+      const ffmpeg = spawn("ffmpeg", [
+        "-i", videoPath,
+        "-vf", `drawtext=text='${overlayText}':x=(w-text_w)/2:y=h-th-20:fontsize=24:fontcolor=white:box=1:boxcolor=black@0.5:boxborderw=5`,
+        "-c:a", "copy",
+        "-t", "5", // Export only first 5 seconds for speed in demo
+        "-y",
+        outputPath
+      ]);
+
+      ffmpeg.on("close", (code) => {
+        if (code !== 0) {
+          return res.status(500).json({ message: "Export failed" });
+        }
+        res.json({ url: `/exports/${outputFilename}` });
+      });
+    } catch (err) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Metadata Extraction API
   app.post(api.metadata.extract.path, async (req, res) => {
     try {
