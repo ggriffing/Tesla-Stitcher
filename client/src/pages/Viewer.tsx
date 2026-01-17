@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Stars } from "@react-three/drei";
@@ -9,10 +9,14 @@ import { CyberInput } from "@/components/CyberInput";
 import { Slider } from "@/components/ui/slider";
 import { 
   Play, Pause, Save, ArrowLeft, Upload, Settings2, 
-  RotateCcw, Monitor, SkipBack, SkipForward 
+  RotateCcw, Monitor, SkipBack, SkipForward,
+  Gauge, MapPin, Zap, Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { api, buildUrl } from "@shared/routes";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 type CameraView = "front" | "back" | "left" | "right";
 
@@ -42,6 +46,10 @@ export default function Viewer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [selectedView, setSelectedView] = useState<CameraView | null>(null);
+  
+  // Telemetry State
+  const [metadata, setMetadata] = useState<any[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   // Initialize config when project loads
   useEffect(() => {
@@ -59,7 +67,7 @@ export default function Viewer() {
     if (isPlaying) {
       interval = window.setInterval(() => {
         setCurrentTime((prev) => {
-          if (prev >= duration) {
+          if (prev >= duration && duration > 0) {
              setIsPlaying(false);
              return 0;
           }
@@ -78,7 +86,59 @@ export default function Viewer() {
       description: "Video stream integrated successfully.",
       className: "bg-background border-primary text-primary font-mono",
     });
+
+    // Auto-extract metadata if it's the front camera
+    if (view === "front") {
+      extractMetadata(file.name);
+    }
   };
+
+  const extractMetadata = async (filename: string) => {
+    setIsExtracting(true);
+    try {
+      const res = await apiRequest("POST", api.metadata.extract.path, { filename });
+      const data = await res.json();
+      setMetadata(data);
+      if (data.length > 0) {
+        toast({
+          title: "Telemetry Data Extracted",
+          description: `Loaded ${data.length} telemetry samples.`,
+          className: "bg-background border-primary text-primary font-mono",
+        });
+      }
+    } catch (err) {
+      console.error("Metadata extraction failed:", err);
+      // Fallback to mock data for demo if server fails (e.g. file doesn't actually exist on server)
+      generateMockMetadata();
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const generateMockMetadata = () => {
+    const mockData = Array.from({ length: 600 }).map((_, i) => ({
+      timestamp: (i * 0.1).toString(),
+      speed: Math.floor(60 + Math.random() * 10).toString(),
+      gear: "D",
+      latitude: (37.3947 + (Math.random() * 0.001)).toFixed(4),
+      longitude: (-122.1503 + (Math.random() * 0.001)).toFixed(4),
+      brake: Math.random() > 0.9 ? "1" : "0",
+      accelerator: Math.floor(15 + Math.random() * 15).toString(),
+      power: Math.floor(30 + Math.random() * 20).toString()
+    }));
+    setMetadata(mockData);
+    toast({
+      title: "Simulated Telemetry Active",
+      description: "Using generated telemetry for visualization.",
+      className: "bg-background border-accent text-accent font-mono",
+    });
+  };
+
+  const currentTelemetry = useMemo(() => {
+    if (metadata.length === 0) return null;
+    const index = Math.floor(currentTime * 10);
+    return metadata[Math.min(index, metadata.length - 1)];
+  }, [metadata, currentTime]);
 
   const handleSave = async () => {
     if (!config) return;
@@ -109,11 +169,10 @@ export default function Viewer() {
     });
   };
 
-  // Helper to handle rotation updates since they are arrays
   const updateRotation = (view: CameraView, axis: 0 | 1 | 2, value: number) => {
     if (!config) return;
     const newRot = [...config[view].rotation] as [number, number, number];
-    newRot[axis] = value * (Math.PI / 180); // Convert deg to rad for UI convenience
+    newRot[axis] = value * (Math.PI / 180); 
     updateConfig(view, "rotation", newRot);
   };
   
@@ -149,6 +208,11 @@ export default function Viewer() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          {metadata.length === 0 && !isExtracting && (
+             <CyberButton variant="ghost" onClick={generateMockMetadata} className="text-[10px] h-8">
+               MOCK DATA
+             </CyberButton>
+          )}
           <CyberButton variant="primary" onClick={handleSave} isLoading={updateProject.isPending}>
             <Save className="w-4 h-4 mr-2" /> Save Config
           </CyberButton>
@@ -315,11 +379,66 @@ export default function Viewer() {
              {/* Center marker (The Car) */}
              <mesh position={[0, 0, 0]}>
                <boxGeometry args={[1, 0.5, 2]} />
-               <meshBasicMaterial color="gray" wireframe />
+               <meshBasicMaterial color="#00ffff" wireframe />
              </mesh>
           </Canvas>
 
-          {/* Canvas Overlay UI - View Controls */}
+          {/* Telemetry HUD */}
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 pointer-events-none z-30">
+            <div className="bg-black/60 backdrop-blur-xl border border-primary/40 rounded-xl p-4 grid grid-cols-4 md:grid-cols-7 gap-6 items-center shadow-[0_0_20px_rgba(0,255,255,0.1)]">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center gap-1.5 text-primary text-[10px] uppercase font-bold tracking-tighter">
+                  <Gauge className="h-3 w-3" /> SPEED
+                </div>
+                <div className="text-3xl font-mono text-white leading-none mt-1">
+                  {currentTelemetry?.speed || "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
+                </div>
+              </div>
+              
+              <div className="flex flex-col items-center border-l border-white/10">
+                <div className="text-[10px] text-primary uppercase font-bold tracking-tighter">GEAR</div>
+                <div className="text-3xl font-mono text-white leading-none mt-1">{currentTelemetry?.gear || "P"}</div>
+              </div>
+
+              <div className="hidden md:flex flex-col col-span-2 border-l border-white/10 px-4">
+                <div className="flex items-center gap-1.5 text-primary text-[10px] uppercase font-bold tracking-tighter">
+                  <MapPin className="h-3 w-3" /> COORDINATES
+                </div>
+                <div className="text-xs font-mono text-white mt-1">
+                  {currentTelemetry?.latitude || "0.0000"}° N <br/>
+                  {currentTelemetry?.longitude || "0.0000"}° W
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center border-l border-white/10 px-2">
+                <div className="flex items-center gap-1.5 text-primary text-[10px] uppercase font-bold tracking-tighter">
+                  <Activity className="h-3 w-3" /> PEDALS
+                </div>
+                <div className="flex gap-2 items-end h-8 mt-1">
+                  <div className="w-1.5 bg-white/5 rounded-full overflow-hidden flex flex-col justify-end h-full">
+                    <div className="bg-primary w-full shadow-[0_0_8px_rgba(0,255,255,0.5)]" style={{ height: `${currentTelemetry?.accelerator || 0}%` }} />
+                  </div>
+                  <div className="w-1.5 bg-white/5 rounded-full overflow-hidden flex flex-col justify-end h-full">
+                    <div className="bg-red-500 w-full shadow-[0_0_8px_rgba(239,68,68,0.5)]" style={{ height: `${currentTelemetry?.brake === "1" ? 100 : 0}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden md:flex flex-col col-span-2 border-l border-white/10 pl-6 pr-2">
+                <div className="flex items-center gap-1.5 text-primary text-[10px] uppercase font-bold tracking-tighter">
+                  <Zap className="h-3 w-3" /> POWER
+                </div>
+                <div className="w-full bg-white/5 h-2 rounded-full mt-2 overflow-hidden border border-white/10">
+                  <div 
+                    className="bg-primary h-full transition-all duration-300 shadow-[0_0_10px_rgba(0,255,255,0.4)]" 
+                    style={{ width: `${currentTelemetry?.power || 0}%` }} 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* View Controls */}
           <div className="absolute top-4 right-4 flex flex-col gap-2">
              <div className="bg-black/50 backdrop-blur text-xs font-mono p-2 rounded border border-white/10 text-muted-foreground">
                 <p>LMB: ROTATE</p>
@@ -364,6 +483,9 @@ export default function Viewer() {
             </CyberButton>
             <CyberButton variant="ghost" className="px-2" onClick={() => setCurrentTime(Math.min(duration, currentTime + 5))}>
               <SkipForward className="w-4 h-4" />
+            </CyberButton>
+            <CyberButton variant="ghost" onClick={() => setCurrentTime(0)}>
+              <RotateCcw className="w-4 h-4" />
             </CyberButton>
           </div>
         </div>
