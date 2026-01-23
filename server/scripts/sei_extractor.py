@@ -31,6 +31,7 @@ def run():
 def main(path: str):
     """Main function to extract and print SEI metadata from the video file, in CSV format."""
     has_sei = False
+    base_time = None
     with open(path, "rb") as fp:
         offset, size = find_mdat(fp)
         headers = [
@@ -47,9 +48,9 @@ def main(path: str):
             if 'timestamp' in row_dict:
                 try:
                     ts = float(row_dict['timestamp'])
-                    if not hasattr(main, 'base_time'):
-                        main.base_time = ts
-                    row_dict['timestamp'] = round(ts - main.base_time, 3)
+                    if base_time is None:
+                        base_time = ts
+                    row_dict['timestamp'] = round(ts - base_time, 3)
                 except (ValueError, TypeError):
                     pass
                     
