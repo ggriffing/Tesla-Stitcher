@@ -199,21 +199,15 @@ export default function Viewer() {
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
     
-    // We want the HUD to be perfectly in sync with the video.
-    // Tesla dashcam metadata entries usually have a 'timestamp' which is absolute time or offset.
-    // We assume 'timestamp' in the CSV is the number of seconds from the start of the recording.
+    // Most Tesla dashcam videos are 1-minute (60s) segments.
+    // The SEI metadata often has a startup delay or absolute timestamps.
+    // We assume the FIRST metadata entry aligns with the START of the video.
+    const startTimestamp = parseFloat(metadata[0].timestamp || "0");
+    const targetTimestamp = startTimestamp + currentTime + (syncOffsets["front"] || 0);
     
-    // Adjust targetTime by the user-defined offset for the front camera
-    const targetTime = currentTime + (syncOffsets["front"] || 0);
-    
-    // Find the entry that matches our targetTime best
     return metadata.reduce((prev, curr) => {
-      const prevTime = parseFloat(prev.timestamp || "0");
-      const currTime = parseFloat(curr.timestamp || "0");
-      
-      const prevDiff = Math.abs(prevTime - targetTime);
-      const currDiff = Math.abs(currTime - targetTime);
-      
+      const prevDiff = Math.abs(parseFloat(prev.timestamp) - targetTimestamp);
+      const currDiff = Math.abs(parseFloat(curr.timestamp) - targetTimestamp);
       return currDiff < prevDiff ? curr : prev;
     });
   }, [metadata, currentTime, syncOffsets]);
