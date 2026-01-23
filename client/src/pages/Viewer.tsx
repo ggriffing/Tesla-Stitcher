@@ -199,13 +199,14 @@ export default function Viewer() {
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
     
-    // Most Tesla dashcam videos are 60 seconds long.
-    // The metadata might cover a larger range or be relative to a global timestamp.
-    // If sync feels off, we should use the playback time relative to the metadata start.
-    const targetTime = currentTime; 
+    // We want the HUD to be perfectly in sync with the video.
+    // Tesla dashcam metadata entries usually have a 'timestamp' which is absolute time or offset.
+    // We assume 'timestamp' in the CSV is the number of seconds from the start of the recording.
     
-    // Find the entry that matches our current playback time best
-    // We expect metadata[i].timestamp to be relative seconds from the start of the file
+    // Adjust targetTime by the user-defined offset for the front camera
+    const targetTime = currentTime + (syncOffsets["front"] || 0);
+    
+    // Find the entry that matches our targetTime best
     return metadata.reduce((prev, curr) => {
       const prevTime = parseFloat(prev.timestamp || "0");
       const currTime = parseFloat(curr.timestamp || "0");
@@ -215,7 +216,7 @@ export default function Viewer() {
       
       return currDiff < prevDiff ? curr : prev;
     });
-  }, [metadata, currentTime]);
+  }, [metadata, currentTime, syncOffsets]);
 
   const handleSave = async () => {
     if (!config) return;
