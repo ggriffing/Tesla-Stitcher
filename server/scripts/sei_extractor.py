@@ -40,17 +40,29 @@ def main(path: str):
             if not has_sei:
                 has_sei = True
                 print(','.join(headers))
+            
+            # Use MessageToDict to get all fields accurately
+            msg_dict = MessageToDict(meta, preserving_proto_field_name=True)
             row_dict = {header: '' for header in headers}
-            for key, value in MessageToDict(meta, preserving_proto_field_name=True).items():
+            for key, value in msg_dict.items():
                 row_dict[key] = value
             
+            # Use the raw proto speed which is in MPH (per Tesla reference)
             # Ensure timestamp is present and format it relative to start
-            if 'timestamp' in row_dict:
+            if 'timestamp' in row_dict and row_dict['timestamp'] != '':
                 try:
                     ts = float(row_dict['timestamp'])
                     if base_time is None:
                         base_time = ts
-                    row_dict['timestamp'] = round(ts - base_time, 3)
+                    # Use absolute precision for normalization
+                    row_dict['timestamp'] = ts - base_time
+                except (ValueError, TypeError):
+                    pass
+            
+            # Force speed to integer for CSV consistency if it exists
+            if 'speed' in row_dict and row_dict['speed'] != '':
+                try:
+                    row_dict['speed'] = int(float(row_dict['speed']))
                 except (ValueError, TypeError):
                     pass
                     

@@ -199,21 +199,27 @@ export default function Viewer() {
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
     
-    // According to Tesla's dashcam-mp4.js reference:
-    // We apply the sync offset to the currentTime to allow for manual calibration
+    // Adjusted time with user offset
     const adjustedTime = Math.max(0, currentTime + (syncOffsets["front"] || 0));
     
     // Find the entry that matches our targetTime best
-    // Metadata timestamps are now normalized to start at 0 by the extractor
-    return metadata.reduce((prev, curr) => {
-      const prevTime = parseFloat(prev.timestamp || "0");
-      const currTime = parseFloat(curr.timestamp || "0");
-      
-      const prevDiff = Math.abs(prevTime - adjustedTime);
-      const currDiff = Math.abs(currTime - adjustedTime);
-      
-      return currDiff < prevDiff ? curr : prev;
-    });
+    // We use a simple binary search or find for better performance with large metadata sets
+    // But for 1-minute clips, a direct comparison is fine.
+    let bestEntry = metadata[0];
+    let minDiff = Math.abs(parseFloat(metadata[0].timestamp || "0") - adjustedTime);
+
+    for (let i = 1; i < metadata.length; i++) {
+      const diff = Math.abs(parseFloat(metadata[i].timestamp || "0") - adjustedTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        bestEntry = metadata[i];
+      } else if (diff > minDiff) {
+        // Since timestamps are sequential, once diff starts increasing, we've found the best match
+        break;
+      }
+    }
+
+    return bestEntry;
   }, [metadata, currentTime, syncOffsets]);
 
   const handleSave = async () => {
