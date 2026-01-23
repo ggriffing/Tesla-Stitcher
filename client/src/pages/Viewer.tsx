@@ -156,16 +156,31 @@ export default function Viewer() {
   };
 
   const generateMockMetadata = () => {
-    const mockData = Array.from({ length: 600 }).map((_, i) => ({
-      timestamp: (i * 0.1).toString(),
-      speed: Math.floor(60 + Math.random() * 10).toString(),
-      gear: "D",
-      latitude: (37.3947 + (Math.random() * 0.001)).toFixed(4),
-      longitude: (-122.1503 + (Math.random() * 0.001)).toFixed(4),
-      brake: Math.random() > 0.9 ? "1" : "0",
-      accelerator: Math.floor(15 + Math.random() * 15).toString(),
-      power: Math.floor(30 + Math.random() * 20).toString()
-    }));
+    const mockData = Array.from({ length: 600 }).map((_, i) => {
+      // Create a curve for speed: starts at 0, accelerates, then cruises
+      let speedValue = 0;
+      if (i < 50) {
+        // Accelerating from 0 to 65
+        speedValue = (i / 50) * 65;
+      } else if (i < 400) {
+        // Cruising at 65-70
+        speedValue = 65 + Math.random() * 5;
+      } else {
+        // Decelerating to 0
+        speedValue = Math.max(0, 70 - ((i - 400) / 200) * 70);
+      }
+
+      return {
+        timestamp: (i * 0.1).toString(),
+        speed: Math.floor(speedValue).toString(),
+        gear: speedValue > 0 ? "D" : "P",
+        latitude: (37.3947 + (Math.random() * 0.001)).toFixed(4),
+        longitude: (-122.1503 + (Math.random() * 0.001)).toFixed(4),
+        brake: speedValue === 0 && i > 400 ? "1" : "0",
+        accelerator: speedValue > 0 && i < 50 ? Math.floor(30 + Math.random() * 20).toString() : "0",
+        power: Math.floor(speedValue * 0.8 + Math.random() * 10).toString()
+      };
+    });
     setMetadata(mockData);
     toast({
       title: "Simulated Telemetry Active",
@@ -443,7 +458,7 @@ export default function Viewer() {
                   <Gauge className="h-3 w-3" /> SPEED
                 </div>
                 <div className="text-3xl font-mono text-white leading-none mt-1">
-                  {currentTelemetry?.speed || "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
+                  {currentTelemetry ? Math.floor(parseFloat(currentTelemetry.speed) * 2.237) : "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
                 </div>
               </div>
               
