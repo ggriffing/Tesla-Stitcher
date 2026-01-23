@@ -42,6 +42,17 @@ def main(path: str):
             row_dict = {header: '' for header in headers}
             for key, value in MessageToDict(meta, preserving_proto_field_name=True).items():
                 row_dict[key] = value
+            
+            # Ensure timestamp is present and format it relative to start
+            if 'timestamp' in row_dict:
+                try:
+                    ts = float(row_dict['timestamp'])
+                    if not hasattr(main, 'base_time'):
+                        main.base_time = ts
+                    row_dict['timestamp'] = round(ts - main.base_time, 3)
+                except (ValueError, TypeError):
+                    pass
+                    
             print(','.join(str(row_dict[h]) for h in headers))
     if not has_sei:
         print("No SEI metadata found. Requirements:")

@@ -199,15 +199,19 @@ export default function Viewer() {
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
     
-    // Most Tesla dashcam videos are 1-minute (60s) segments.
-    // The SEI metadata often has a startup delay or absolute timestamps.
-    // We assume the FIRST metadata entry aligns with the START of the video.
-    const startTimestamp = parseFloat(metadata[0].timestamp || "0");
-    const targetTimestamp = startTimestamp + currentTime + (syncOffsets["front"] || 0);
+    // According to Tesla's dashcam-mp4.js reference:
+    // We apply the sync offset to the currentTime to allow for manual calibration
+    const adjustedTime = Math.max(0, currentTime + (syncOffsets["front"] || 0));
     
+    // Find the entry that matches our targetTime best
+    // Metadata timestamps are now normalized to start at 0 by the extractor
     return metadata.reduce((prev, curr) => {
-      const prevDiff = Math.abs(parseFloat(prev.timestamp) - targetTimestamp);
-      const currDiff = Math.abs(parseFloat(curr.timestamp) - targetTimestamp);
+      const prevTime = parseFloat(prev.timestamp || "0");
+      const currTime = parseFloat(curr.timestamp || "0");
+      
+      const prevDiff = Math.abs(prevTime - adjustedTime);
+      const currDiff = Math.abs(currTime - adjustedTime);
+      
       return currDiff < prevDiff ? curr : prev;
     });
   }, [metadata, currentTime, syncOffsets]);
