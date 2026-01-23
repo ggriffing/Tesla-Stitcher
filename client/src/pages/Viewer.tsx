@@ -458,7 +458,7 @@ export default function Viewer() {
                   <Gauge className="h-3 w-3" /> SPEED
                 </div>
                 <div className="text-3xl font-mono text-white leading-none mt-1">
-                  {currentTelemetry ? Math.floor(parseFloat(currentTelemetry.speed)) : "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
+                  {currentTelemetry ? Math.floor(parseFloat(currentTelemetry.speed) * 2.237) : "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
                 </div>
               </div>
               
