@@ -90,6 +90,8 @@ export default function Viewer() {
 
     // Auto-extract metadata if it's the front camera
     if (view === "front") {
+      // In local development, the server won't have access to the client's file path
+      // We should explain this or provide a mock fallback
       extractMetadata(file.name);
     }
   };
@@ -109,7 +111,12 @@ export default function Viewer() {
       }
     } catch (err) {
       console.error("Metadata extraction failed:", err);
-      // Fallback to mock data for demo if server fails (e.g. file doesn't actually exist on server)
+      toast({
+        title: "Extraction Note",
+        description: "Local files cannot be processed by the server-side extractor automatically. Using simulated telemetry for synchronization.",
+        className: "bg-background border-accent text-accent font-mono",
+      });
+      // Fallback to mock data for demo if server fails
       generateMockMetadata();
     } finally {
       setIsExtracting(false);

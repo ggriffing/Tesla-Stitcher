@@ -92,6 +92,9 @@ The app will be available at `http://localhost:5000`.
 
 ## 6. Troubleshooting
 
+- **Metadata Extraction**: Note that when running locally, selecting a file through the browser does not automatically upload it to the server (to protect your bandwidth/storage). The SEI extractor requires the file to be present in the `attached_assets` directory. To process your own videos:
+  1. Copy your `front.mp4` video to the `attached_assets` folder.
+  2. The app will then be able to extract the telemetry successfully.
 - **Python Path**: If the app can't find Python, ensure `python3` is in your system PATH.
 - **PostgreSQL**: Ensure the service is running (`brew services start postgresql@18`).
 - **FFmpeg**: The export feature requires FFmpeg. Install it via Homebrew: `brew install ffmpeg`.
