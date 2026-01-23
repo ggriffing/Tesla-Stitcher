@@ -192,15 +192,20 @@ export default function Viewer() {
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
     
-    // Video starts at 0s, but metadata timestamps might not.
-    // We assume the first metadata entry corresponds to the start of the video.
-    const startTimestamp = parseFloat(metadata[0].timestamp || "0");
-    const targetTimestamp = startTimestamp + currentTime;
+    // Most Tesla dashcam videos are 60 seconds long.
+    // The metadata might cover a larger range or be relative to a global timestamp.
+    // If sync feels off, we should use the playback time relative to the metadata start.
+    const targetTime = currentTime; 
     
-    // Find the closest metadata entry to the current video time
+    // Find the entry that matches our current playback time best
+    // We expect metadata[i].timestamp to be relative seconds from the start of the file
     return metadata.reduce((prev, curr) => {
-      const prevDiff = Math.abs(parseFloat(prev.timestamp) - targetTimestamp);
-      const currDiff = Math.abs(parseFloat(curr.timestamp) - targetTimestamp);
+      const prevTime = parseFloat(prev.timestamp || "0");
+      const currTime = parseFloat(curr.timestamp || "0");
+      
+      const prevDiff = Math.abs(prevTime - targetTime);
+      const currDiff = Math.abs(currTime - targetTime);
+      
       return currDiff < prevDiff ? curr : prev;
     });
   }, [metadata, currentTime]);
