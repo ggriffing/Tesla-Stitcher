@@ -191,8 +191,18 @@ export default function Viewer() {
 
   const currentTelemetry = useMemo(() => {
     if (metadata.length === 0) return null;
-    const index = Math.floor(currentTime * 10);
-    return metadata[Math.min(index, metadata.length - 1)];
+    
+    // Video starts at 0s, but metadata timestamps might not.
+    // We assume the first metadata entry corresponds to the start of the video.
+    const startTimestamp = parseFloat(metadata[0].timestamp || "0");
+    const targetTimestamp = startTimestamp + currentTime;
+    
+    // Find the closest metadata entry to the current video time
+    return metadata.reduce((prev, curr) => {
+      const prevDiff = Math.abs(parseFloat(prev.timestamp) - targetTimestamp);
+      const currDiff = Math.abs(parseFloat(curr.timestamp) - targetTimestamp);
+      return currDiff < prevDiff ? curr : prev;
+    });
   }, [metadata, currentTime]);
 
   const handleSave = async () => {
@@ -458,7 +468,7 @@ export default function Viewer() {
                   <Gauge className="h-3 w-3" /> SPEED
                 </div>
                 <div className="text-3xl font-mono text-white leading-none mt-1">
-                  {currentTelemetry ? Math.floor(parseFloat(currentTelemetry.speed) * 2.237) : "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
+                  {currentTelemetry ? Math.floor(parseFloat(currentTelemetry.speed)) : "0"} <span className="text-[10px] text-muted-foreground font-sans">MPH</span>
                 </div>
               </div>
               
